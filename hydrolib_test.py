@@ -13,6 +13,10 @@ import subprocess
 
 modelname = "model"
 
+if Path(modelname).exists():
+    shutil.rmtree(modelname)
+
+os.mkdir(modelname)
 os.chdir(modelname)
 
 fm_model = FMModel()
