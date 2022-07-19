@@ -6,9 +6,11 @@ from hydrolib.core.io.inifield.models import (
     InterpolationMethod,
     DataFileType,
 )
+from hydrolib.core.io.ext.models import ExtModel, Boundary
 from pathlib import Path
 import os
 import shutil
+from distutils.dir_util import copy_tree
 import subprocess
 
 modelname = "model"
@@ -17,6 +19,7 @@ if Path(modelname).exists():
     shutil.rmtree(modelname)
 
 os.mkdir(modelname)
+copy_tree("initial_files", modelname) # TODO: remove this
 os.chdir(modelname)
 
 fm_model = FMModel()
@@ -43,8 +46,13 @@ bed_level = InitialField(
 )
 fm_model.geometry.inifieldfile = IniFieldModel(initial=[bed_level])
 
-fm_model.save(recurse=True)
 
-shutil.copyfile("../network_patched.nc", "network.nc")
+
+boundary = Boundary(quantity="waterlevelbnd", locationfile="Boundary01.pli", forcingfile="WaterLevel.bc")
+external_forcing = ExtModel(boundary=[boundary])
+fm_model.external_forcing.extforcefilenew = external_forcing
+
+
+fm_model.save(recurse=True)
 
 subprocess.run([r"..\..\x64_2021\dflowfm\scripts\run_dflowfm.bat", fm_model.filepath], check=True)
