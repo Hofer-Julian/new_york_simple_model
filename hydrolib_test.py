@@ -43,4 +43,4 @@ fm_model.save(recurse=True)
 
 shutil.copyfile("../network_patched.nc", "network.nc")
 
-subprocess.run([r"..\..\x64_2021\dflowfm\scripts\run_dflowfm.bat", f".\{modelname}.mdu"], check=True)
+subprocess.run([r"..\..\x64_2021\dflowfm\scripts\run_dflowfm.bat", fm_model.filepath], check=True)
