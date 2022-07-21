@@ -11,7 +11,8 @@ from pathlib import Path
 import os
 import shutil
 from distutils.dir_util import copy_tree
-import subprocess
+from bmi.wrapper import BMIWrapper
+import matplotlib.pyplot as plt
 
 modelname = "model"
 
@@ -19,7 +20,7 @@ if Path(modelname).exists():
     shutil.rmtree(modelname)
 
 os.mkdir(modelname)
-copy_tree("initial_files", modelname) # TODO: remove this
+copy_tree("initial_files", modelname)  # TODO: remove this
 os.chdir(modelname)
 
 fm_model = FMModel()
@@ -47,12 +48,32 @@ bed_level = InitialField(
 fm_model.geometry.inifieldfile = IniFieldModel(initial=[bed_level])
 
 
-
-boundary = Boundary(quantity="waterlevelbnd", locationfile="Boundary01.pli", forcingfile="WaterLevel.bc")
+boundary = Boundary(
+    quantity="waterlevelbnd", locationfile="Boundary01.pli", forcingfile="WaterLevel.bc"
+)
 external_forcing = ExtModel(boundary=[boundary])
 fm_model.external_forcing.extforcefilenew = external_forcing
 
-
 fm_model.save(recurse=True)
 
-subprocess.run([r"..\..\x64_2021\dflowfm\scripts\run_dflowfm.bat", fm_model.filepath], check=True)
+os.chdir("..")
+os.environ["PATH"] = (
+    r"C:\checkouts\lumbricus\dflowfm_dll" + os.pathsep + os.environ["PATH"]
+)
+
+with BMIWrapper(
+    engine="dflowfm", configfile=os.path.abspath(f"{modelname}/{modelname}.mdu")
+) as model:
+    index = 0
+    while model.get_current_time() < model.get_end_time():
+        model.update()
+        if index % 10 == 0:
+            x = model.get_var("xz")
+            y = model.get_var("yz")
+            water_level = model.get_var("hs")
+            fig, ax  = plt.subplots()
+            sc = ax.scatter(x, y, c=water_level)
+            fig.colorbar(sc)
+            plt.show()
+
+        index += 1
