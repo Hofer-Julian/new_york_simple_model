@@ -70,9 +70,9 @@ with BMIWrapper(
         if index % 10 == 0:
             x = model.get_var("xz")
             y = model.get_var("yz")
-            water_level = model.get_var("hs")
+            water_depth = model.get_var("hs")
             fig, ax  = plt.subplots()
-            sc = ax.scatter(x, y, c=water_level)
+            sc = ax.scatter(x, y, c=water_depth)
             fig.colorbar(sc)
             plt.show()
 
