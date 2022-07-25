@@ -15,30 +15,29 @@ from distutils.dir_util import copy_tree
 from bmi.wrapper import BMIWrapper
 import matplotlib.pyplot as plt
 
+# Initialize model dir
 modelname = "model"
-
 if Path(modelname).exists():
     shutil.rmtree(modelname)
-
 os.mkdir(modelname)
-copy_tree("initial_files", modelname)  # TODO: remove this
 os.chdir(modelname)
 
+# Create new model object
 fm_model = FMModel()
 fm_model.filepath = Path(f"{modelname}.mdu")
 
 network = fm_model.geometry.netfile.network
+# This will can only be used as soon as https://github.com/Deltares/HYDROLIB-core/issues/290 is solved
 network.mesh2d_create_rectilinear_within_extent(extent=(-5, -5, 5, 5), dx=1, dy=1)
 
+# Create bed level
 xyz_model = XYZModel(points=[])
-xyz_model.filepath = Path(f"{modelname}.xyz")
 xyz_model.points = [
     XYZPoint(x=-5.1, y=-5.1, z=-50.0),
     XYZPoint(x=-5.1, y=5.1, z=-50.0),
     XYZPoint(x=5.1, y=-5.1, z=-20.0),
     XYZPoint(x=5.1, y=5.1, z=-20.0),
 ]
-
 xyz_model.save()
 bed_level = InitialField(
     quantity="bedlevel",
@@ -48,6 +47,7 @@ bed_level = InitialField(
 )
 fm_model.geometry.inifieldfile = IniFieldModel(initial=[bed_level])
 
+# Create boundary
 forcing_1 = Astronomic(
     name="Boundary01_0001",
     quantityunitpair=[
@@ -82,25 +82,41 @@ boundary = Boundary(
 external_forcing = ExtModel(boundary=[boundary])
 fm_model.external_forcing.extforcefilenew = external_forcing
 
+# Save model
 fm_model.save(recurse=True)
 
 os.chdir("..")
+
+# Add dflowfm dll folder to PATH so that it can be found by the BMIWrapper
 os.environ["PATH"] = str(Path().cwd() / "dflowfm_dll") + os.pathsep + os.environ["PATH"]
 
 
-with BMIWrapper(
-    engine="dflowfm", configfile=os.path.abspath(f"{modelname}/{modelname}.mdu")
-) as model:
-    index = 0
-    while model.get_current_time() < model.get_end_time():
-        model.update()
-        if index == 10:
-            x = model.get_var("xz")
-            y = model.get_var("yz")
-            water_depth = model.get_var("hs")
-            fig, ax = plt.subplots()
-            sc = ax.scatter(x, y, c=water_depth)
-            fig.colorbar(sc)
-            plt.show()
+# We workaround
+# - https://github.com/Deltares/HYDROLIB-core/issues/295 and
+# - https://github.com/Deltares/HYDROLIB-core/issues/290
+# by creating these files ourselves and then copying them
+copy_tree("initial_files", modelname)
 
-        index += 1
+# Initialize the BMI Wrapper
+dflowfm = BMIWrapper(
+    engine="dflowfm", configfile=os.path.abspath(f"{modelname}/{modelname}.mdu")
+)
+dflowfm.initialize()
+
+# Time loop
+index = 0
+while dflowfm.get_current_time() < dflowfm.get_end_time():
+    dflowfm.update()
+    if index == 10:
+        x = dflowfm.get_var("xz")
+        y = dflowfm.get_var("yz")
+        water_depth = dflowfm.get_var("hs")
+        fig, ax = plt.subplots()
+        sc = ax.scatter(x, y, c=water_depth)
+        fig.colorbar(sc)
+        plt.show()
+
+    index += 1
+
+# Finalize
+dflowfm.finalize()
