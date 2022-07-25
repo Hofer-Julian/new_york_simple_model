@@ -6,6 +6,7 @@ from hydrolib.core.io.inifield.models import (
     InterpolationMethod,
     DataFileType,
 )
+from hydrolib.core.io.bc.models import ForcingModel, Astronomic, QuantityUnitPair
 from hydrolib.core.io.ext.models import ExtModel, Boundary
 from pathlib import Path
 import os
@@ -47,9 +48,36 @@ bed_level = InitialField(
 )
 fm_model.geometry.inifieldfile = IniFieldModel(initial=[bed_level])
 
-
+forcing_1 = Astronomic(
+    name="Boundary01_0001",
+    quantityunitpair=[
+        QuantityUnitPair(quantity="astronomic component", unit="-"),
+        QuantityUnitPair(quantity="waterlevelbnd amplitude", unit="m"),
+        QuantityUnitPair(quantity="waterlevelbnd phase", unit="deg"),
+    ],
+    datablock=[
+        ["A0", "0.5", "0"],
+        ["M2", "2", "0"],
+    ],
+)
+forcing_2 = Astronomic(
+    name="Boundary01_0002",
+    quantityunitpair=[
+        QuantityUnitPair(quantity="astronomic component", unit="-"),
+        QuantityUnitPair(quantity="waterlevelbnd amplitude", unit="m"),
+        QuantityUnitPair(quantity="waterlevelbnd phase", unit="deg"),
+    ],
+    datablock=[
+        ["A0", "0.5", "0"],
+        ["M2", "2", "0"],
+    ]
+)
+forcing_model = ForcingModel(
+     forcing=[forcing_1, forcing_2]
+)
+forcing_model.save(recurse=True)
 boundary = Boundary(
-    quantity="waterlevelbnd", locationfile="Boundary01.pli", forcingfile="WaterLevel.bc"
+    quantity="waterlevelbnd", locationfile="Boundary01.pli", forcingfile=forcing_model.filepath
 )
 external_forcing = ExtModel(boundary=[boundary])
 fm_model.external_forcing.extforcefilenew = external_forcing
@@ -57,9 +85,8 @@ fm_model.external_forcing.extforcefilenew = external_forcing
 fm_model.save(recurse=True)
 
 os.chdir("..")
-os.environ["PATH"] = (
-    str(Path().cwd() / "dflowfm_dll") + os.pathsep + os.environ["PATH"]
-)
+os.environ["PATH"] = str(Path().cwd() / "dflowfm_dll") + os.pathsep + os.environ["PATH"]
+
 
 with BMIWrapper(
     engine="dflowfm", configfile=os.path.abspath(f"{modelname}/{modelname}.mdu")
@@ -71,7 +98,7 @@ with BMIWrapper(
             x = model.get_var("xz")
             y = model.get_var("yz")
             water_depth = model.get_var("hs")
-            fig, ax  = plt.subplots()
+            fig, ax = plt.subplots()
             sc = ax.scatter(x, y, c=water_depth)
             fig.colorbar(sc)
             plt.show()
